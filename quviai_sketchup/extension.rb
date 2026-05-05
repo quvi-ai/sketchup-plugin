@@ -113,7 +113,7 @@ module QUVIAI
           failure_html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'>" \
                          "<h2 style='color:#e74c3c'>Login failed.</h2>" \
                          "<p>Please close this window and try again.</p></body></html>"
-          conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n" \
+          conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n" +
                      (code ? success_html : failure_html)
           conn.close
 
