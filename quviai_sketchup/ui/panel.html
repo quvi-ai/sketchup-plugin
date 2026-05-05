@@ -49,13 +49,11 @@
     </button>
   </div>
 
-  <div id="google-code-form" style="display:none">
-    <p style="font-size:11px;color:#aaa;margin-bottom:8px">
-      A browser window has opened. Complete sign-in, then paste the authorisation code below.
+  <div id="google-waiting" style="display:none">
+    <p style="font-size:12px;color:#aaa;margin-bottom:8px">
+      A browser window has opened — complete Google sign-in there.<br>
+      This panel will update automatically when done.
     </p>
-    <label>Authorisation Code</label>
-    <input type="text" id="google-code" placeholder="Paste code here…">
-    <button class="btn-primary" onclick="submitGoogleCode()">Continue</button>
     <button class="btn-secondary" onclick="cancelGoogleLogin()">Cancel</button>
   </div>
 
@@ -207,9 +205,6 @@ function setObjMode(mode){
   document.getElementById("obj-mode-image").className  = mode === "image"  ? "btn-primary" : "btn-secondary";
 }
 
-const GOOGLE_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob";
-const GOOGLE_CLIENT_ID    = ""; // filled by backend redirect flow
-
 function login(){
   const email    = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -219,26 +214,15 @@ function login(){
 }
 
 function startGoogleLogin(){
-  // Open the QUVIAI Google OAuth page in the system browser.
-  // The user completes login and copies the code shown.
-  const authUrl = "https://quvi.ai/api/auth/google/desktop/";
-  sketchup.open_google_auth(authUrl);
   document.getElementById("login-form").style.display = "none";
-  document.getElementById("google-code-form").style.display = "";
+  document.getElementById("google-waiting").style.display = "";
   setLoginStatus("");
-}
-
-function submitGoogleCode(){
-  const code = document.getElementById("google-code").value.trim();
-  if(!code){ setLoginStatus("Please paste the authorisation code.", true); return; }
-  setLoginStatus("Verifying…");
-  sketchup.login_google(code, GOOGLE_REDIRECT_URI);
+  sketchup.start_google_login();
 }
 
 function cancelGoogleLogin(){
   document.getElementById("login-form").style.display = "";
-  document.getElementById("google-code-form").style.display = "none";
-  document.getElementById("google-code").value = "";
+  document.getElementById("google-waiting").style.display = "none";
   setLoginStatus("");
 }
 
@@ -297,18 +281,25 @@ function setLoginStatus(msg, isError){
 window.quviReceive = function(data){
   switch(data.event){
     case "logged_in":
-      document.getElementById("login-view").style.display = "none";
-      document.getElementById("main-view").style.display  = "";
-      document.getElementById("credits-val").textContent  = data.credits >= 0 ? data.credits : "—";
+      document.getElementById("login-form").style.display   = "";
+      document.getElementById("google-waiting").style.display = "none";
+      document.getElementById("login-view").style.display   = "none";
+      document.getElementById("main-view").style.display    = "";
+      document.getElementById("credits-val").textContent    = data.credits >= 0 ? data.credits : "—";
       break;
     case "logged_out":
       document.getElementById("login-view").style.display = "";
       document.getElementById("main-view").style.display  = "none";
       break;
+    case "google_login_waiting":
+      // Already handled by startGoogleLogin() in JS
+      break;
     case "credits_updated":
       document.getElementById("credits-val").textContent = data.credits >= 0 ? data.credits : "—";
       break;
     case "error":
+      document.getElementById("login-form").style.display    = "";
+      document.getElementById("google-waiting").style.display = "none";
       setLoginStatus(data.message, true);
       break;
     case "render_started":

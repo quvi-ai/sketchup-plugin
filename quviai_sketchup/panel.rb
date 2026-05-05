@@ -43,19 +43,16 @@ module QUVIAI
         end
       end
 
-      # Google login — opens browser for OAuth, user pastes the auth code back
-      @dialog.add_action_callback("login_google") do |_ctx, auth_code, redirect_uri|
-        begin
-          credits = Extension.login_google(auth_code, redirect_uri)
-          send_event("logged_in", { credits: credits })
-        rescue StandardError => e
-          send_event("error", { message: e.message })
+      # Google login — opens browser, starts local server to catch callback automatically
+      @dialog.add_action_callback("start_google_login") do |_ctx|
+        send_event("google_login_waiting", {})
+        Extension.start_google_login do |result|
+          if result[:error]
+            send_event("error", { message: result[:error] })
+          else
+            send_event("logged_in", { credits: result[:credits] })
+          end
         end
-      end
-
-      # Open Google OAuth URL in the system browser
-      @dialog.add_action_callback("open_google_auth") do |_ctx, url|
-        UI.openURL(url)
       end
 
       # Logout

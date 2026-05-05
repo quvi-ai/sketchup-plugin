@@ -1,5 +1,8 @@
 require "sketchup"
+require "socket"
+require "uri"
 
+require_relative "constants"
 require_relative "exceptions"
 require_relative "models"
 require_relative "auth"
@@ -28,7 +31,11 @@ module QUVIAI
       refresh = Store.refresh_token
       return nil unless access && !access.empty?
 
-      @client = QuviClient.from_tokens(access_token: access, refresh_token: refresh)
+      @client = QuviClient.from_tokens(
+        access_token:  access,
+        refresh_token: refresh,
+        client_key:    CLIENT_KEY,
+      )
     end
 
     def self.logged_in?
@@ -36,19 +43,65 @@ module QUVIAI
     end
 
     def self.login(email, password)
-      @client = QuviClient.login(email: email, password: password)
+      @client = QuviClient.login(email: email, password: password, client_key: CLIENT_KEY)
       Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
       credits = @client.get_credits
       Store.save_credits(credits)
       credits
     end
 
-    def self.login_google(auth_code, redirect_uri)
-      @client = QuviClient.login_with_google(auth_code: auth_code, redirect_uri: redirect_uri)
-      Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
-      credits = @client.get_credits
-      Store.save_credits(credits)
-      credits
+    # Opens a browser for Google OAuth and starts a local server to catch
+    # the redirect automatically — same flow as the Blender plugin.
+    def self.start_google_login(&callback)
+      redirect_uri = "http://localhost:#{GOOGLE_OAUTH_PORT}"
+      auth_url = "https://accounts.google.com/o/oauth2/v2/auth" \
+                 "?client_id=#{URI.encode_www_form_component(GOOGLE_CLIENT_ID)}" \
+                 "&redirect_uri=#{URI.encode_www_form_component(redirect_uri)}" \
+                 "&response_type=code" \
+                 "&scope=email%20profile" \
+                 "&access_type=offline"
+
+      UI.openURL(auth_url)
+
+      Thread.new do
+        begin
+          server = TCPServer.new("localhost", GOOGLE_OAUTH_PORT)
+          server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+          conn = server.accept
+
+          request = +""
+          while (line = conn.gets)
+            break if line =~ /^\r?\n$/
+            request << line
+          end
+
+          code = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
+
+          body = code \
+            ? "<h2>Login successful! You can close this tab and return to SketchUp.</h2>" \
+            : "<h2>Login failed. Please try again.</h2>"
+          conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n#{body}"
+          conn.close
+          server.close
+
+          if code
+            @client = QuviClient.login_with_google(
+              auth_code:    code,
+              redirect_uri: redirect_uri,
+              client_type:  "android",
+              client_key:   CLIENT_KEY,
+            )
+            Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
+            credits = @client.get_credits
+            Store.save_credits(credits)
+            callback.call(credits: credits, error: nil)
+          else
+            callback.call(credits: nil, error: "No authorisation code received from Google")
+          end
+        rescue StandardError => e
+          callback.call(credits: nil, error: e.message)
+        end
+      end
     end
 
     def self.logout
@@ -82,7 +135,7 @@ module QUVIAI
         Capture.file_to_base64(params[:ref_image_path])
       end
 
-      c = client  # capture for thread
+      c = client
       Thread.new do
         begin
           result = c.render_3d(
@@ -138,7 +191,6 @@ module QUVIAI
       @panel.show
     end
 
-    # Called once when the extension loads
     def self.register_menu
       menu = UI.menu("Plugins").add_submenu("QUVIAI")
       menu.add_item("Open Panel") { show_panel }
