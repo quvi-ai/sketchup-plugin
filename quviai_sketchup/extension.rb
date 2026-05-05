@@ -47,7 +47,9 @@ module QUVIAI
     def self.login(email, password)
       @client = QuviClient.login(email: email, password: password, client_key: CLIENT_KEY)
       Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
-      credits = @client.get_credits
+      # get_credits is a second HTTP call — make it non-fatal so a transient
+      # network hiccup here doesn't break a login that already succeeded.
+      credits = begin; @client.get_credits; rescue; -1; end
       Store.save_credits(credits)
       credits
     end
@@ -134,7 +136,7 @@ module QUVIAI
               client_key:   CLIENT_KEY,
             )
             Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
-            credits = @client.get_credits
+            credits = begin; @client.get_credits; rescue; -1; end
             Store.save_credits(credits)
             callback.call(credits: credits, error: nil)
           else

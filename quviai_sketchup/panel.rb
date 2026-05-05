@@ -29,25 +29,35 @@ module QUVIAI
 
     private
 
+    # -----------------------------------------------------------------------
+    # Callbacks
+    # -----------------------------------------------------------------------
+
     def register_callbacks
+      # Email / password login
       @dialog.add_action_callback("login") do |_ctx, email, password|
         Thread.new do
           begin
             credits = Extension.login(email, password)
-            send_event("logged_in", { credits: credits })
+            # execute_script MUST run on the main thread — dispatch via timer.
+            MainThread.run do
+              send_event("logged_in", { credits: credits })
+            end
           rescue StandardError => e
-            send_event("error", { message: e.message })
+            MainThread.run { send_event("error", { message: e.message }) }
           end
         end
       end
 
+      # Google OAuth — opens second HtmlDialog inside SketchUp
       @dialog.add_action_callback("start_google_login") do |_ctx|
         send_event("google_login_waiting", {})
         Extension.start_google_login do |result|
+          # Callback fires from the background OAuth thread.
           if result[:error]
-            send_event("error", { message: result[:error] })
+            MainThread.run { send_event("error", { message: result[:error] }) }
           else
-            send_event("logged_in", { credits: result[:credits] })
+            MainThread.run { send_event("logged_in", { credits: result[:credits] }) }
           end
         end
       end
@@ -57,6 +67,7 @@ module QUVIAI
         send_event("logged_out", {})
       end
 
+      # Called by JS after set_html completes — restores logged-in state.
       @dialog.add_action_callback("init") do |_ctx|
         if Extension.logged_in?
           send_event("logged_in", { credits: Store.credits })
@@ -65,24 +76,25 @@ module QUVIAI
         end
       end
 
+      # Credit refresh — HTTP in background, UI update on main thread.
       @dialog.add_action_callback("refresh_credits") do |_ctx|
         Thread.new do
           credits = Extension.refresh_credits
-          send_event("credits_updated", { credits: credits })
+          MainThread.run { send_event("credits_updated", { credits: credits }) }
         end
       end
 
+      # Render 3D
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
         send_event("render_started", {})
         Extension.start_render(params) do |result|
           if result[:error]
-            send_event("render_error", { message: result[:error] })
+            MainThread.run { send_event("render_error", { message: result[:error] }) }
           else
             MainThread.run do
               path    = Importer.open_image_temp(result[:image_bytes])
-              # Use credit returned by the submit response (no extra HTTP round-trip)
               credits = result[:last_credit] || Extension.refresh_credits
               Store.save_credits(credits) if credits
               send_event("render_done", { path: path, credits: credits.to_i })
@@ -91,6 +103,7 @@ module QUVIAI
         end
       end
 
+      # Save last render result to a user-chosen file
       @dialog.add_action_callback("save_render") do |_ctx, path|
         begin
           saved = Importer.save_image(File.binread(path))
@@ -100,13 +113,14 @@ module QUVIAI
         end
       end
 
+      # 3D Object generation
       @dialog.add_action_callback("start_object") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
         send_event("object_started", {})
         Extension.start_object_generation(params) do |result|
           if result[:error]
-            send_event("object_error", { message: result[:error] })
+            MainThread.run { send_event("object_error", { message: result[:error] }) }
           else
             MainThread.run do
               begin
@@ -123,19 +137,29 @@ module QUVIAI
       end
     end
 
+    # -----------------------------------------------------------------------
+    # Helpers
+    # -----------------------------------------------------------------------
+
+    # Called from the polling background thread on every status tick.
+    # Must dispatch to the main thread before calling execute_script.
     def on_status_callback(status)
-      send_event("status_update", {
-        status:   status.status,
-        progress: status.progress_percentage || 0,
-        eta:      status.eta_formatted,
-      })
+      MainThread.run do
+        send_event("status_update", {
+          status:   status.status,
+          progress: status.progress_percentage || 0,
+          eta:      status.eta_formatted,
+        })
+      end
     end
 
+    # execute_script is only safe on the main thread.
+    # All callers from background threads must go through MainThread.run first.
     def send_event(name, payload = {})
       js = "window.quviReceive(#{JSON.generate({ event: name }.merge(payload))})"
       @dialog.execute_script(js)
     rescue StandardError
-      # Dialog may have been closed
+      # Dialog may have been closed — ignore.
     end
   end
 end
