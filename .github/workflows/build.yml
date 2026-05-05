@@ -1,0 +1,31 @@
+name: Build Extension RBZ
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build quviai_sketchup.rbz
+        run: bash scripts/build_rbz.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quviai_sketchup
+          path: quviai_sketchup.rbz
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: quviai_sketchup.rbz
