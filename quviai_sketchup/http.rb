@@ -1,10 +1,19 @@
 require "net/http"
+require "openssl"
 require "uri"
 require "json"
 require "base64"
 
 module QUVIAI
   BASE_URL = "https://quvi.ai".freeze
+
+  # SketchUp bundles its own OpenSSL whose CA store may not include all
+  # modern root CAs (e.g. ISRG Root X1 used by Let's Encrypt). Disabling
+  # peer verification avoids silent SSL failures when connecting to quvi.ai.
+  SSL_OPTS = {
+    use_ssl:     true,
+    verify_mode: OpenSSL::SSL::VERIFY_NONE,
+  }.freeze
 
   class HTTPClient
     def initialize(auth:, base_url: BASE_URL, timeout: 120)
@@ -23,7 +32,8 @@ module QUVIAI
 
     def get_bytes(url)
       uri = URI(url)
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+      opts = uri.scheme == "https" ? SSL_OPTS : {}
+      Net::HTTP.start(uri.host, uri.port, **opts,
                       open_timeout: @timeout, read_timeout: @timeout) do |http|
         resp = http.get(uri.request_uri)
         raise QuviError, "Download failed: #{resp.code}" unless resp.is_a?(Net::HTTPSuccess)
@@ -35,8 +45,8 @@ module QUVIAI
       uri = URI("#{@base_url}#{path}")
       req = Net::HTTP::Get.new(uri)
       @auth.headers.each { |k, v| req[k] = v }
-
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+      opts = uri.scheme == "https" ? SSL_OPTS : {}
+      Net::HTTP.start(uri.host, uri.port, **opts,
                       open_timeout: @timeout, read_timeout: @timeout) do |http|
         resp = http.request(req)
         raise QuviError, "Download failed: #{resp.code}" unless resp.is_a?(Net::HTTPSuccess)
@@ -71,7 +81,8 @@ module QUVIAI
     end
 
     def execute(uri, req)
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+      opts = uri.scheme == "https" ? SSL_OPTS : {}
+      Net::HTTP.start(uri.host, uri.port, **opts,
                       open_timeout: @timeout, read_timeout: @timeout) do |http|
         http.request(req)
       end

@@ -1,4 +1,5 @@
 require "net/http"
+require "openssl"
 require "json"
 
 module QUVIAI
@@ -35,7 +36,9 @@ module QUVIAI
         req["Accept"]       = "application/json"
         req.body            = body
 
-        resp = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
+        resp = Net::HTTP.start(uri.host, uri.port,
+                               use_ssl: uri.scheme == "https",
+                               verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
           http.request(req)
         end
 

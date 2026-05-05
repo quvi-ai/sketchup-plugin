@@ -19,6 +19,9 @@ module QUVIAI
     end
 
     def show
+      # Pre-start the drain timer on the main thread so background threads
+      # can safely queue events via MainThread.run.
+      MainThread.ensure_timer_running
       register_callbacks
       @dialog.show
       @dialog.bring_to_front
@@ -30,30 +33,27 @@ module QUVIAI
     private
 
     # -----------------------------------------------------------------------
-    # Callbacks
+    # Callbacks — add_action_callback blocks run on SketchUp's main thread.
     # -----------------------------------------------------------------------
 
     def register_callbacks
-      # Email / password login
+      # Email / password login.
+      # Runs synchronously on the main thread (same as Blender plugin).
+      # Brief UI freeze (~1 s) is acceptable; avoids all threading complexity.
       @dialog.add_action_callback("login") do |_ctx, email, password|
-        Thread.new do
-          begin
-            credits = Extension.login(email, password)
-            # execute_script MUST run on the main thread — dispatch via timer.
-            MainThread.run do
-              send_event("logged_in", { credits: credits })
-            end
-          rescue StandardError => e
-            MainThread.run { send_event("error", { message: e.message }) }
-          end
+        begin
+          credits = Extension.login(email, password)
+          send_event("logged_in", { credits: credits })
+        rescue StandardError => e
+          send_event("error", { message: e.message })
         end
       end
 
-      # Google OAuth — opens second HtmlDialog inside SketchUp
+      # Google OAuth — must be async (waits up to 120 s for browser redirect).
       @dialog.add_action_callback("start_google_login") do |_ctx|
         send_event("google_login_waiting", {})
         Extension.start_google_login do |result|
-          # Callback fires from the background OAuth thread.
+          # Callback arrives from the background OAuth thread.
           if result[:error]
             MainThread.run { send_event("error", { message: result[:error] }) }
           else
@@ -67,7 +67,7 @@ module QUVIAI
         send_event("logged_out", {})
       end
 
-      # Called by JS after set_html completes — restores logged-in state.
+      # Called by JS once the page finishes loading — restores login state.
       @dialog.add_action_callback("init") do |_ctx|
         if Extension.logged_in?
           send_event("logged_in", { credits: Store.credits })
@@ -76,15 +76,18 @@ module QUVIAI
         end
       end
 
-      # Credit refresh — HTTP in background, UI update on main thread.
+      # Credit refresh — synchronous on main thread (quick GET, acceptable freeze).
       @dialog.add_action_callback("refresh_credits") do |_ctx|
-        Thread.new do
-          credits = Extension.refresh_credits
-          MainThread.run { send_event("credits_updated", { credits: credits }) }
-        end
+        credits = Extension.refresh_credits
+        send_event("credits_updated", { credits: credits })
       end
 
-      # Render 3D
+      # Open pricing page in the system browser.
+      @dialog.add_action_callback("open_pricing") do |_ctx|
+        UI.openURL("https://quvi.ai/pricing")
+      end
+
+      # Render 3D — long-running, must be async.
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
@@ -103,12 +106,7 @@ module QUVIAI
         end
       end
 
-      # Open pricing page in the system browser
-      @dialog.add_action_callback("open_pricing") do |_ctx|
-        UI.openURL("https://quvi.ai/pricing")
-      end
-
-      # Save last render result to a user-chosen file
+      # Save last render result to a user-chosen file.
       @dialog.add_action_callback("save_render") do |_ctx, path|
         begin
           saved = Importer.save_image(File.binread(path))
@@ -118,7 +116,7 @@ module QUVIAI
         end
       end
 
-      # 3D Object generation
+      # 3D Object generation — long-running, must be async.
       @dialog.add_action_callback("start_object") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
@@ -147,7 +145,6 @@ module QUVIAI
     # -----------------------------------------------------------------------
 
     # Called from the polling background thread on every status tick.
-    # Must dispatch to the main thread before calling execute_script.
     def on_status_callback(status)
       MainThread.run do
         send_event("status_update", {
@@ -158,8 +155,8 @@ module QUVIAI
       end
     end
 
-    # execute_script is only safe on the main thread.
-    # All callers from background threads must go through MainThread.run first.
+    # execute_script is safe on the main thread and from callbacks.
+    # Background-thread callers must go through MainThread.run first.
     def send_event(name, payload = {})
       js = "window.quviReceive(#{JSON.generate({ event: name }.merge(payload))})"
       @dialog.execute_script(js)

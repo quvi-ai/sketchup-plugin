@@ -1,5 +1,6 @@
 require "json"
 require "net/http"
+require "openssl"
 require "base64"
 
 module QUVIAI
@@ -212,7 +213,10 @@ module QUVIAI
       req["X-API-Key"]    = client_key if client_key
       req.body            = JSON.generate(body)
 
-      resp = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 30, read_timeout: 120) do |http|
+      resp = Net::HTTP.start(uri.host, uri.port,
+                             use_ssl:     uri.scheme == "https",
+                             verify_mode: OpenSSL::SSL::VERIFY_NONE,
+                             open_timeout: 30, read_timeout: 120) do |http|
         http.request(req)
       end
 
