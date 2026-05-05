@@ -15,14 +15,17 @@ module QUVIAI
         min_height:      400,
         resizable:       true,
       )
-
-      register_callbacks
-
-      html = File.read(File.join(__dir__, "ui", "panel.html"), encoding: "UTF-8")
-      @dialog.set_html(html)
+      @html = File.read(File.join(__dir__, "ui", "panel.html"), encoding: "UTF-8")
     end
 
     def show
+      # Re-register callbacks and reload HTML on every show.
+      # SketchUp creates a fresh JS context when a closed dialog is reopened,
+      # so callbacks registered in initialize are not visible to the new context.
+      # set_html must be called after the dialog has been shown at least once;
+      # calling it in initialize causes a blank webview on first open.
+      register_callbacks
+      @dialog.set_html(@html)
       @dialog.show
       @dialog.bring_to_front
     end
