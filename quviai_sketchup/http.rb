@@ -3,7 +3,7 @@ require "uri"
 require "json"
 require "base64"
 
-module QuviAI
+module QUVIAI
   BASE_URL = "https://quvi.ai".freeze
 
   class HTTPClient

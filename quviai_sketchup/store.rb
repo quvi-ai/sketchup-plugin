@@ -1,8 +1,8 @@
-module QuviAI
+module QUVIAI
   # Thin wrapper around SketchUp's persistent key-value store.
-  # All keys are namespaced under "QuviAI" so they never collide with other extensions.
+  # All keys are namespaced under "QUVIAI" so they never collide with other extensions.
   module Store
-    NS = "QuviAI".freeze
+    NS = "QUVIAI".freeze
 
     def self.get(key, default = nil)
       Sketchup.read_default(NS, key.to_s, default)

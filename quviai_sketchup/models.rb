@@ -1,4 +1,4 @@
-module QuviAI
+module QUVIAI
   TaskStatus = Struct.new(
     :task_id,
     :status,

@@ -1,4 +1,4 @@
-module QuviAI
+module QUVIAI
   MAX_NETWORK_RETRIES = 10
 
   class JobPoller

@@ -1,6 +1,6 @@
 require "json"
 
-module QuviAI
+module QUVIAI
   class Panel
     PANEL_W = 340
     PANEL_H = 620

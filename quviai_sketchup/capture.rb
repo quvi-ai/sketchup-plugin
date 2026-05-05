@@ -1,7 +1,7 @@
 require "base64"
 require "tmpdir"
 
-module QuviAI
+module QUVIAI
   module Capture
     TARGET_LONG_EDGE = 1920
     MAX_LONG_EDGE    = 2048

@@ -2,7 +2,7 @@ require "json"
 require "net/http"
 require "base64"
 
-module QuviAI
+module QUVIAI
   class QuviClient
     attr_reader :access_token, :refresh_token
 

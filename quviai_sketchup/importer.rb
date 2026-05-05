@@ -1,6 +1,6 @@
 require "tmpdir"
 
-module QuviAI
+module QUVIAI
   module Importer
     # Write GLB bytes to a temp file and import into the active SketchUp model.
     # Must be called from the main thread.

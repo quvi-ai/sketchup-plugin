@@ -1,7 +1,7 @@
 require "sketchup"
 require "extensions"
 
-module QuviAI
+module QUVIAI
   PLUGIN_ROOT = File.dirname(__FILE__)
 
   extension = SketchupExtension.new("QUVIAI", File.join(PLUGIN_ROOT, "quviai_sketchup", "extension"))

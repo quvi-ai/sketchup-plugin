@@ -1,4 +1,4 @@
-module QuviAI
+module QUVIAI
   class QuviError < StandardError; end
 
   class AuthError < QuviError

@@ -11,7 +11,7 @@ require_relative "capture"
 require_relative "importer"
 require_relative "panel"
 
-module QuviAI
+module QUVIAI
   module Extension
     @client    = nil
     @panel     = nil
@@ -137,4 +137,4 @@ module QuviAI
   end
 end
 
-QuviAI::Extension.register_menu
+QUVIAI::Extension.register_menu

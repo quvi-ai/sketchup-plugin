@@ -1,7 +1,7 @@
 require "net/http"
 require "json"
 
-module QuviAI
+module QUVIAI
   class JWTAuth
     attr_reader :access_token, :refresh_token, :client_key
 
