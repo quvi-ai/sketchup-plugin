@@ -36,12 +36,30 @@
 <!-- Login -->
 <div id="login-view">
   <h2>QUVIAI</h2>
-  <label>E-mail</label>
-  <input type="email" id="email" placeholder="you@example.com">
-  <label>Password</label>
-  <input type="password" id="password" placeholder="••••••••">
-  <button class="btn-primary" onclick="login()">Log In</button>
-  <div id="login-status"></div>
+
+  <div id="login-form">
+    <label>E-mail</label>
+    <input type="email" id="email" placeholder="you@example.com">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••">
+    <button class="btn-primary" onclick="login()">Log In</button>
+    <div style="text-align:center;margin:6px 0;color:#555;font-size:11px">— or —</div>
+    <button class="btn-secondary" onclick="startGoogleLogin()" style="background:#2d2d2d;border:1px solid #555">
+      Log In with Google
+    </button>
+  </div>
+
+  <div id="google-code-form" style="display:none">
+    <p style="font-size:11px;color:#aaa;margin-bottom:8px">
+      A browser window has opened. Complete sign-in, then paste the authorisation code below.
+    </p>
+    <label>Authorisation Code</label>
+    <input type="text" id="google-code" placeholder="Paste code here…">
+    <button class="btn-primary" onclick="submitGoogleCode()">Continue</button>
+    <button class="btn-secondary" onclick="cancelGoogleLogin()">Cancel</button>
+  </div>
+
+  <div id="login-status" style="margin-top:6px"></div>
 </div>
 
 <!-- Main -->
@@ -189,12 +207,39 @@ function setObjMode(mode){
   document.getElementById("obj-mode-image").className  = mode === "image"  ? "btn-primary" : "btn-secondary";
 }
 
+const GOOGLE_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob";
+const GOOGLE_CLIENT_ID    = ""; // filled by backend redirect flow
+
 function login(){
   const email    = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
   if(!email || !password){ setLoginStatus("E-mail and password are required.", true); return; }
   setLoginStatus("Logging in…");
   sketchup.login(email, password);
+}
+
+function startGoogleLogin(){
+  // Open the QUVIAI Google OAuth page in the system browser.
+  // The user completes login and copies the code shown.
+  const authUrl = "https://quvi.ai/api/auth/google/desktop/";
+  sketchup.open_google_auth(authUrl);
+  document.getElementById("login-form").style.display = "none";
+  document.getElementById("google-code-form").style.display = "";
+  setLoginStatus("");
+}
+
+function submitGoogleCode(){
+  const code = document.getElementById("google-code").value.trim();
+  if(!code){ setLoginStatus("Please paste the authorisation code.", true); return; }
+  setLoginStatus("Verifying…");
+  sketchup.login_google(code, GOOGLE_REDIRECT_URI);
+}
+
+function cancelGoogleLogin(){
+  document.getElementById("login-form").style.display = "";
+  document.getElementById("google-code-form").style.display = "none";
+  document.getElementById("google-code").value = "";
+  setLoginStatus("");
 }
 
 function logout(){ sketchup.logout(); }

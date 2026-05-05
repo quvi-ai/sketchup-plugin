@@ -20,8 +20,9 @@ module QUVIAI
       # sketchup.init() in the JS finds them immediately.
       register_callbacks
 
-      html_path = File.join(__dir__, "ui", "panel.html").gsub("\\", "/")
-      @dialog.set_url("file:///#{html_path}")
+      # set_html avoids all file:// path issues (4-slash bug, spaces, etc.)
+      html = File.read(File.join(__dir__, "ui", "panel.html"), encoding: "UTF-8")
+      @dialog.set_html(html)
     end
 
     def show
@@ -40,6 +41,21 @@ module QUVIAI
         rescue StandardError => e
           send_event("error", { message: e.message })
         end
+      end
+
+      # Google login — opens browser for OAuth, user pastes the auth code back
+      @dialog.add_action_callback("login_google") do |_ctx, auth_code, redirect_uri|
+        begin
+          credits = Extension.login_google(auth_code, redirect_uri)
+          send_event("logged_in", { credits: credits })
+        rescue StandardError => e
+          send_event("error", { message: e.message })
+        end
+      end
+
+      # Open Google OAuth URL in the system browser
+      @dialog.add_action_callback("open_google_auth") do |_ctx, url|
+        UI.openURL(url)
       end
 
       # Logout

@@ -43,6 +43,14 @@ module QUVIAI
       credits
     end
 
+    def self.login_google(auth_code, redirect_uri)
+      @client = QuviClient.login_with_google(auth_code: auth_code, redirect_uri: redirect_uri)
+      Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
+      credits = @client.get_credits
+      Store.save_credits(credits)
+      credits
+    end
+
     def self.logout
       @client = nil
       Store.clear_tokens
