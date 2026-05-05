@@ -16,10 +16,12 @@ module QUVIAI
         resizable:       true,
       )
 
-      html_path = File.join(__dir__, "ui", "panel.html")
-      @dialog.set_file(html_path)
-
+      # Callbacks must be registered before the page loads so that
+      # sketchup.init() in the JS finds them immediately.
       register_callbacks
+
+      html_path = File.join(__dir__, "ui", "panel.html").gsub("\\", "/")
+      @dialog.set_url("file:///#{html_path}")
     end
 
     def show

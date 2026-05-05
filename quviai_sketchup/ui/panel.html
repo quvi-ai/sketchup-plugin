@@ -308,7 +308,16 @@ window.quviReceive = function(data){
 // Init
 onCategoryChange();
 onRenderTypeChange();
-sketchup.init();
+
+// Wait for the SketchUp JS bridge to be ready before calling init.
+function connectToSketchup() {
+  if (typeof sketchup !== 'undefined') {
+    sketchup.init();
+  } else {
+    setTimeout(connectToSketchup, 100);
+  }
+}
+connectToSketchup();
 </script>
 </body>
 </html>
