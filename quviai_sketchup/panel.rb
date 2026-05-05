@@ -15,15 +15,14 @@ module QUVIAI
         min_height:      400,
         resizable:       true,
       )
-
-      # Callbacks must be registered before the page loads so that
-      # sketchup.init() in the JS finds them immediately.
-      register_callbacks
-
-      @dialog.set_file(File.join(__dir__, "ui", "panel.html"))
     end
 
     def show
+      # Re-register callbacks and reload the file every time the panel is shown.
+      # This ensures the sketchup JS bridge reflects current callbacks even after
+      # the dialog was closed and reopened (some SketchUp versions drop them).
+      register_callbacks
+      @dialog.set_file(File.join(__dir__, "ui", "panel.html"))
       @dialog.show
       @dialog.bring_to_front
     end
@@ -31,13 +30,16 @@ module QUVIAI
     private
 
     def register_callbacks
-      # Login
+      # Login — runs in a thread so the HTTP request does not block the main
+      # thread, which would prevent execute_script from working.
       @dialog.add_action_callback("login") do |_ctx, email, password|
-        begin
-          credits = Extension.login(email, password)
-          send_event("logged_in", { credits: credits })
-        rescue StandardError => e
-          send_event("error", { message: e.message })
+        Thread.new do
+          begin
+            credits = Extension.login(email, password)
+            send_event("logged_in", { credits: credits })
+          rescue StandardError => e
+            send_event("error", { message: e.message })
+          end
         end
       end
 
@@ -53,13 +55,13 @@ module QUVIAI
         end
       end
 
-      # Logout
+      # Logout — local only, no HTTP, safe on main thread
       @dialog.add_action_callback("logout") do |_ctx|
         Extension.logout
         send_event("logged_out", {})
       end
 
-      # Init — panel asks for current state on load
+      # Init — called by JS on page load; reads local storage only, no HTTP
       @dialog.add_action_callback("init") do |_ctx|
         if Extension.logged_in?
           send_event("logged_in", { credits: Store.credits })
@@ -68,24 +70,23 @@ module QUVIAI
         end
       end
 
-      # Refresh credits
+      # Refresh credits — HTTP call, run in thread
       @dialog.add_action_callback("refresh_credits") do |_ctx|
-        credits = Extension.refresh_credits
-        send_event("credits_updated", { credits: credits })
+        Thread.new do
+          credits = Extension.refresh_credits
+          send_event("credits_updated", { credits: credits })
+        end
       end
 
       # Start render
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
-
         send_event("render_started", {})
-
         Extension.start_render(params) do |result|
           if result[:error]
             send_event("render_error", { message: result[:error] })
           else
-            # UI.openURL must run on the main thread
             MainThread.run do
               path    = Importer.open_image_temp(result[:image_bytes])
               credits = Extension.refresh_credits
@@ -97,9 +98,8 @@ module QUVIAI
 
       # Save render result
       @dialog.add_action_callback("save_render") do |_ctx, path|
-        # Already saved as temp; offer save-as dialog
         begin
-          data = File.binread(path)
+          data  = File.binread(path)
           saved = Importer.save_image(data)
           send_event("render_saved", { path: saved }) if saved
         rescue StandardError => e
@@ -111,14 +111,11 @@ module QUVIAI
       @dialog.add_action_callback("start_object") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
-
         send_event("object_started", {})
-
         Extension.start_object_generation(params) do |result|
           if result[:error]
             send_event("object_error", { message: result[:error] })
           else
-            # model.import must run on the main thread
             MainThread.run do
               begin
                 Importer.import_glb(result[:glb_bytes])
