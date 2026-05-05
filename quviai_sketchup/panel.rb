@@ -19,15 +19,12 @@ module QUVIAI
     end
 
     def show
-      # Re-register callbacks and reload HTML on every show.
-      # SketchUp creates a fresh JS context when a closed dialog is reopened,
-      # so callbacks registered in initialize are not visible to the new context.
-      # set_html must be called after the dialog has been shown at least once;
-      # calling it in initialize causes a blank webview on first open.
       register_callbacks
-      @dialog.set_html(@html)
       @dialog.show
       @dialog.bring_to_front
+      # Defer set_html by one event-loop tick so SketchUp's webview is fully
+      # initialised before content is injected (blank-screen fix on first open).
+      UI.start_timer(0.0, false) { @dialog.set_html(@html) }
     end
 
     private
