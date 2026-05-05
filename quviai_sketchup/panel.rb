@@ -90,7 +90,7 @@ module QUVIAI
       # Render 3D — long-running, must be async.
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
-        params[:on_status] = method(:on_status_callback)
+        params[:on_status] = method(:on_render_status)
         send_event("render_started", {})
         Extension.start_render(params) do |result|
           if result[:error]
@@ -119,7 +119,7 @@ module QUVIAI
       # 3D Object generation — long-running, must be async.
       @dialog.add_action_callback("start_object") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
-        params[:on_status] = method(:on_status_callback)
+        params[:on_status] = method(:on_object_status)
         send_event("object_started", {})
         Extension.start_object_generation(params) do |result|
           if result[:error]
@@ -144,10 +144,20 @@ module QUVIAI
     # Helpers
     # -----------------------------------------------------------------------
 
-    # Called from the polling background thread on every status tick.
-    def on_status_callback(status)
+    # Separate polling callbacks so render and object never overwrite each other.
+    def on_render_status(status)
       MainThread.run do
-        send_event("status_update", {
+        send_event("render_status_update", {
+          status:   status.status,
+          progress: status.progress_percentage || 0,
+          eta:      status.eta_formatted,
+        })
+      end
+    end
+
+    def on_object_status(status)
+      MainThread.run do
+        send_event("object_status_update", {
           status:   status.status,
           progress: status.progress_percentage || 0,
           eta:      status.eta_formatted,

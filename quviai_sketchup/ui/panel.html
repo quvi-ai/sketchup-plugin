@@ -389,13 +389,16 @@ window.quviReceive = function(data){
       document.getElementById("obj-error").style.display = "block";
       break;
 
-    case "status_update":{
+    case "render_status_update":{
       const pct = data.progress || 0;
       const txt = data.eta ? `${data.status} — ${data.eta}` : data.status;
-      if(document.getElementById("render-status").style.display !== "none")
-        showRenderStatus(true, txt, pct);
-      if(document.getElementById("obj-status").style.display !== "none")
-        showObjStatus(true, txt, pct);
+      showRenderStatus(true, txt, pct);
+      break;
+    }
+    case "object_status_update":{
+      const pct = data.progress || 0;
+      const txt = data.eta ? `${data.status} — ${data.eta}` : data.status;
+      showObjStatus(true, txt, pct);
       break;
     }
   }

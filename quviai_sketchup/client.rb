@@ -7,7 +7,7 @@ module QUVIAI
   class QuviClient
     attr_reader :access_token, :refresh_token, :last_credit
 
-    def initialize(auth:, base_url: BASE_URL, timeout: 120, poll_interval: 3.0, poll_timeout: 900.0)
+    def initialize(auth:, base_url: BASE_URL, timeout: 120, poll_interval: 2.0, poll_timeout: 900.0)
       @auth          = auth
       @http          = HTTPClient.new(auth: auth, base_url: base_url, timeout: timeout)
       @poll_interval = poll_interval
@@ -190,19 +190,45 @@ module QUVIAI
       if first.start_with?("http://", "https://", "//")
         GenerateResult.new(task_id: task_id, url: first)
       else
-        GenerateResult.new(task_id: task_id, image_data: Base64.decode64(first))
+        GenerateResult.new(task_id: task_id, image_data: decode_base64(first))
       end
     end
 
+    # Mirrors the Python SDK's normalize_result in quviai/utils.py exactly.
+    # Handles list results, all known dict keys, and one level of nesting.
     def normalize_result(result)
+      return [] unless result
+
+      return result.select { |v| v.is_a?(String) && !v.empty? } if result.is_a?(Array)
       return [] unless result.is_a?(Hash)
 
-      %w[image_url image result_image output url].each do |k|
-        v = result[k]
-        next unless v
-        return Array(v).map(&:to_s).reject(&:empty?)
+      found = extract_strings(result)
+      return found unless found.empty?
+
+      nested = result["result"]
+      nested.is_a?(Hash) ? extract_strings(nested) : []
+    end
+
+    def extract_strings(hash)
+      %w[urls images image url file_url].each do |key|
+        val = hash[key]
+        if val.is_a?(Array)
+          items = val.select { |v| v.is_a?(String) && !v.empty? }
+          return items unless items.empty?
+        end
+        return [val] if val.is_a?(String) && !val.empty?
       end
       []
+    end
+
+    # Robust base64 decoder — handles URL-safe alphabet, data-URI prefix,
+    # and incorrect padding (all variants seen in API responses).
+    def decode_base64(b64)
+      b64 = b64.sub(/\Adata:[^;]+;base64,/, "").strip
+      b64 = b64.tr("-_", "+/")
+      b64 = b64.gsub(/=+\z/, "")
+      b64 += "=" * (-b64.length % 4)
+      Base64.decode64(b64)
     end
 
     def self.unauthenticated_post(url, body, client_key: nil)
