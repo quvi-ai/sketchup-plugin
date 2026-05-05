@@ -1,3 +1,5 @@
+require "timeout"
+
 module QUVIAI
   MAX_NETWORK_RETRIES = 10
 

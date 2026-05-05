@@ -196,8 +196,7 @@ module QUVIAI
     def normalize_result(result)
       return [] unless result.is_a?(Hash)
 
-      IMAGE_KEYS = %w[image_url image result_image output url].freeze
-      IMAGE_KEYS.each do |k|
+      %w[image_url image result_image output url].each do |k|
         v = result[k]
         next unless v
         return Array(v).map(&:to_s).reject(&:empty?)
