@@ -98,7 +98,8 @@ module QUVIAI
             request << line
           end
 
-          code = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
+          raw_code = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
+          code = raw_code ? URI.decode_www_form_component(raw_code) : nil
 
           success_html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'>" \
                          "<h2 style='color:#2ecc71'>Login successful!</h2>" \
