@@ -4,7 +4,7 @@ require "base64"
 
 module QUVIAI
   class QuviClient
-    attr_reader :access_token, :refresh_token
+    attr_reader :access_token, :refresh_token, :last_credit
 
     def initialize(auth:, base_url: BASE_URL, timeout: 120, poll_interval: 3.0, poll_timeout: 900.0)
       @auth          = auth

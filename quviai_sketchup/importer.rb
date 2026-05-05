@@ -25,11 +25,16 @@ module QUVIAI
       path
     end
 
-    # Open an image in the default OS viewer after saving to a temp file.
-    def self.open_image_temp(image_bytes, ext: "jpg")
+    # Save image bytes to a temp file, open in OS viewer, return the path.
+    # The temp file is intentionally kept so the user can save it via save_image.
+    def self.open_image_temp(image_bytes, ext: "png")
       tmp_path = File.join(Dir.tmpdir, "quviai_result.#{ext}")
       File.binwrite(tmp_path, image_bytes)
-      UI.openURL("file://#{tmp_path}")
+      # Build a proper file:// URL for both Unix (/tmp/...) and Windows (C:\...)
+      url = tmp_path.match?(/\A[A-Za-z]:/) \
+        ? "file:///#{tmp_path.gsub("\\", "/")}" \
+        : "file://#{tmp_path}"
+      UI.openURL(url)
       tmp_path
     end
   end

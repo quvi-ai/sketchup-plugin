@@ -4,18 +4,18 @@ require "tmpdir"
 module QUVIAI
   module Capture
     TARGET_LONG_EDGE = 1920
-    MAX_LONG_EDGE    = 2048
 
-    # Capture the active SketchUp viewport and return a base64-encoded JPEG string.
+    # Capture the active SketchUp viewport and return a base64-encoded PNG string.
+    # PNG is lossless — same philosophy as Blender plugin (WebP 95%).
     # Must be called from the main thread.
     def self.viewport_to_base64
-      tmp_path = File.join(Dir.tmpdir, "quviai_upload.jpg")
+      tmp_path = File.join(Dir.tmpdir, "quviai_upload.png")
 
       view = Sketchup.active_model.active_view
       vw   = view.vpwidth
       vh   = view.vpheight
 
-      # Scale to TARGET_LONG_EDGE maintaining aspect ratio
+      # Scale to TARGET_LONG_EDGE maintaining aspect ratio (same as Blender plugin)
       if vw >= vh
         cap_w = TARGET_LONG_EDGE
         cap_h = [(vh * TARGET_LONG_EDGE / vw.to_f).round, 1].max

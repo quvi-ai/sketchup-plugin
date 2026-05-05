@@ -82,8 +82,10 @@ module QUVIAI
           else
             MainThread.run do
               path    = Importer.open_image_temp(result[:image_bytes])
-              credits = Extension.refresh_credits
-              send_event("render_done", { path: path, credits: credits })
+              # Use credit returned by the submit response (no extra HTTP round-trip)
+              credits = result[:last_credit] || Extension.refresh_credits
+              Store.save_credits(credits) if credits
+              send_event("render_done", { path: path, credits: credits.to_i })
             end
           end
         end
@@ -109,8 +111,9 @@ module QUVIAI
             MainThread.run do
               begin
                 Importer.import_glb(result[:glb_bytes])
-                credits = Extension.refresh_credits
-                send_event("object_done", { credits: credits })
+                credits = result[:last_credit] || Extension.refresh_credits
+                Store.save_credits(credits) if credits
+                send_event("object_done", { credits: credits.to_i })
               rescue StandardError => e
                 send_event("object_error", { message: e.message })
               end

@@ -12,14 +12,13 @@
   input,select,textarea{width:100%;padding:6px 8px;background:#2d2d2d;border:1px solid #444;
     border-radius:4px;color:#eee;font-size:13px;margin-bottom:8px}
   textarea{resize:vertical;min-height:60px}
-  button{width:100%;padding:8px;border:none;border-radius:4px;cursor:pointer;
-    font-size:13px;margin-bottom:6px}
+  button{width:100%;padding:8px;border:none;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:6px}
+  button:disabled{opacity:0.45;cursor:not-allowed}
   .btn-primary{background:#4f7bff;color:#fff}
-  .btn-primary:hover{background:#3a64e0}
+  .btn-primary:hover:not(:disabled){background:#3a64e0}
   .btn-secondary{background:#333;color:#ccc}
-  .btn-secondary:hover{background:#444}
-  .btn-danger{background:#c0392b;color:#fff}
-  .status-box{background:#2d2d2d;border-radius:4px;padding:8px;margin-top:8px;font-size:12px;color:#aaa}
+  .btn-secondary:hover:not(:disabled){background:#444}
+  .status-box{background:#2d2d2d;border-radius:4px;padding:8px;margin-top:6px;font-size:12px;color:#aaa}
   .progress{height:6px;background:#444;border-radius:3px;overflow:hidden;margin-bottom:6px}
   .progress-bar{height:100%;background:#4f7bff;transition:width .3s}
   .error{color:#e74c3c}
@@ -64,13 +63,13 @@
 <div id="main-view">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <h2 style="margin:0">QUVIAI</h2>
-    <button class="btn-secondary" style="width:auto;padding:4px 10px" onclick="logout()">Log Out</button>
+    <button class="btn-secondary" style="width:auto;padding:4px 10px;margin:0" onclick="logout()">Log Out</button>
   </div>
   <div class="credits">Credits: <span id="credits-val">—</span>
     <a href="#" onclick="refreshCredits();return false" style="color:#4f7bff;margin-left:6px">↻</a>
   </div>
 
-  <!-- Render 3D -->
+  <!-- ── Render 3D ── -->
   <div>
     <label>Category</label>
     <select id="style-category" onchange="onCategoryChange()">
@@ -114,23 +113,25 @@
       </div>
     </div>
 
-    <label style="margin-top:4px">
-      <input type="checkbox" id="use-viewport" checked> Use current viewport as reference
-    </label>
-    <div id="custom-image-row" style="display:none;margin-top:4px">
-      <label>Image path</label>
-      <input type="text" id="image-path" placeholder="/path/to/image.jpg">
-    </div>
-
     <button class="btn-primary" style="margin-top:10px" onclick="startRender()" id="render-btn">Render</button>
 
     <div id="render-status" class="status-box" style="display:none">
       <div class="progress"><div class="progress-bar" id="render-progress-bar" style="width:0%"></div></div>
       <span id="render-status-text">Submitting…</span>
     </div>
+
+    <!-- Result shown after successful render -->
+    <div id="render-result" class="status-box" style="display:none;margin-top:6px">
+      <div class="success" style="margin-bottom:6px">Render complete! Image opened in viewer.</div>
+      <button class="btn-secondary" style="margin:0" onclick="saveRender()">Save to file…</button>
+    </div>
+
+    <div id="render-error" class="status-box" style="display:none;margin-top:6px">
+      <span class="error" id="render-error-text"></span>
+    </div>
   </div>
 
-  <!-- 3D Object -->
+  <!-- ── 3D Object ── -->
   <div class="section">
     <h2 style="font-size:13px;margin-bottom:8px">3D Object Generation</h2>
 
@@ -153,6 +154,14 @@
     <div id="obj-status" class="status-box" style="display:none">
       <div class="progress"><div class="progress-bar" id="obj-progress-bar" style="width:0%"></div></div>
       <span id="obj-status-text">Submitting…</span>
+    </div>
+
+    <div id="obj-result" class="status-box" style="display:none;margin-top:6px">
+      <span class="success">3D Object imported into scene!</span>
+    </div>
+
+    <div id="obj-error" class="status-box" style="display:none;margin-top:6px">
+      <span class="error" id="obj-error-text"></span>
     </div>
   </div>
 </div>
@@ -180,7 +189,7 @@ let lastRenderPath = null;
 function onCategoryChange(){
   const cat = document.getElementById("style-category").value;
   populateStyles(cat === "architectural" ? ARCH_STYLES : GENERAL_STYLES);
-  document.getElementById("arch-controls").style.display = cat === "architectural" ? "" : "none";
+  document.getElementById("arch-controls").style.display = cat === "architectural" ? "block" : "none";
 }
 
 function populateStyles(list){
@@ -190,17 +199,13 @@ function populateStyles(list){
 
 function onRenderTypeChange(){
   const rt = document.getElementById("render-type").value;
-  document.getElementById("ext-controls").style.display = rt === "exterior" ? "" : "none";
+  document.getElementById("ext-controls").style.display = rt === "exterior" ? "flex" : "none";
 }
-
-document.getElementById("use-viewport").addEventListener("change", function(){
-  document.getElementById("custom-image-row").style.display = this.checked ? "none" : "";
-});
 
 function setObjMode(mode){
   objMode = mode;
-  document.getElementById("obj-prompt-area").style.display = mode === "prompt" ? "" : "none";
-  document.getElementById("obj-image-area").style.display  = mode === "image"  ? "" : "none";
+  document.getElementById("obj-prompt-area").style.display = mode === "prompt" ? "block" : "none";
+  document.getElementById("obj-image-area").style.display  = mode === "image"  ? "block" : "none";
   document.getElementById("obj-mode-prompt").className = mode === "prompt" ? "btn-primary" : "btn-secondary";
   document.getElementById("obj-mode-image").className  = mode === "image"  ? "btn-primary" : "btn-secondary";
 }
@@ -215,13 +220,13 @@ function login(){
 
 function startGoogleLogin(){
   document.getElementById("login-form").style.display = "none";
-  document.getElementById("google-waiting").style.display = "";
+  document.getElementById("google-waiting").style.display = "block";
   setLoginStatus("");
   sketchup.start_google_login();
 }
 
 function cancelGoogleLogin(){
-  document.getElementById("login-form").style.display = "";
+  document.getElementById("login-form").style.display = "block";
   document.getElementById("google-waiting").style.display = "none";
   setLoginStatus("");
 }
@@ -230,20 +235,20 @@ function logout(){ sketchup.logout(); }
 function refreshCredits(){ sketchup.refresh_credits(); }
 
 function startRender(){
-  const useViewport = document.getElementById("use-viewport").checked;
-  const cat         = document.getElementById("style-category").value;
-  const rt          = document.getElementById("render-type").value;
+  const cat = document.getElementById("style-category").value;
+  const rt  = document.getElementById("render-type").value;
   const params = {
-    prompt:       document.getElementById("prompt").value,
-    style:        document.getElementById("style-select").value,
-    use_viewport: useViewport,
-    image_path:   useViewport ? "" : document.getElementById("image-path").value,
-    render_type:  cat === "architectural" ? rt : null,
-    day_time:     (cat === "architectural" && rt !== "site") ? document.getElementById("day-time").value : null,
-    weather:      (cat === "architectural" && rt === "exterior") ? document.getElementById("weather").value : null,
+    prompt:      document.getElementById("prompt").value,
+    style:       document.getElementById("style-select").value,
+    render_type: cat === "architectural" ? rt : null,
+    day_time:    (cat === "architectural" && rt !== "site") ? document.getElementById("day-time").value : null,
+    weather:     (cat === "architectural" && rt === "exterior") ? document.getElementById("weather").value : null,
   };
-  showRenderStatus(true, "Submitting…", 0);
+
   document.getElementById("render-btn").disabled = true;
+  document.getElementById("render-result").style.display = "none";
+  document.getElementById("render-error").style.display  = "none";
+  showRenderStatus(true, "Capturing viewport…", 0);
   sketchup.start_render(JSON.stringify(params));
 }
 
@@ -252,21 +257,27 @@ function startObject(){
     prompt:     objMode === "prompt" ? document.getElementById("obj-prompt").value : "",
     image_path: objMode === "image"  ? document.getElementById("obj-image-path").value : "",
   };
-  showObjStatus(true, "Submitting…", 0);
   document.getElementById("obj-btn").disabled = true;
+  document.getElementById("obj-result").style.display = "none";
+  document.getElementById("obj-error").style.display  = "none";
+  showObjStatus(true, "Submitting…", 0);
   sketchup.start_object(JSON.stringify(params));
+}
+
+function saveRender(){
+  if(lastRenderPath) sketchup.save_render(lastRenderPath);
 }
 
 function showRenderStatus(visible, text, pct){
   const box = document.getElementById("render-status");
-  box.style.display = visible ? "" : "none";
+  box.style.display = visible ? "block" : "none";
   document.getElementById("render-status-text").textContent = text;
   document.getElementById("render-progress-bar").style.width = pct + "%";
 }
 
 function showObjStatus(visible, text, pct){
   const box = document.getElementById("obj-status");
-  box.style.display = visible ? "" : "none";
+  box.style.display = visible ? "block" : "none";
   document.getElementById("obj-status-text").textContent = text;
   document.getElementById("obj-progress-bar").style.width = pct + "%";
 }
@@ -277,67 +288,94 @@ function setLoginStatus(msg, isError){
   el.className = isError ? "error" : "";
 }
 
-// Entry point called by Ruby
+function updateCredits(val){
+  document.getElementById("credits-val").textContent = (val >= 0) ? val : "—";
+}
+
+// ── Entry point called by Ruby ──────────────────────────────────────────────
 window.quviReceive = function(data){
   switch(data.event){
+
     case "logged_in":
-      document.getElementById("login-form").style.display   = "block";
+      document.getElementById("login-form").style.display    = "block";
       document.getElementById("google-waiting").style.display = "none";
-      document.getElementById("login-view").style.display   = "none";
-      document.getElementById("main-view").style.display    = "block";
-      document.getElementById("credits-val").textContent    = data.credits >= 0 ? data.credits : "—";
+      document.getElementById("login-view").style.display    = "none";
+      document.getElementById("main-view").style.display     = "block";
+      updateCredits(data.credits);
       break;
+
     case "logged_out":
       document.getElementById("login-view").style.display = "block";
       document.getElementById("main-view").style.display  = "none";
+      document.getElementById("email").value    = "";
+      document.getElementById("password").value = "";
+      setLoginStatus("");
       break;
+
     case "google_login_waiting":
-      // Already handled by startGoogleLogin() in JS
+      // Already handled by startGoogleLogin()
       break;
+
     case "credits_updated":
-      document.getElementById("credits-val").textContent = data.credits >= 0 ? data.credits : "—";
+      updateCredits(data.credits);
       break;
+
     case "error":
-      document.getElementById("login-form").style.display    = "";
+      document.getElementById("login-form").style.display    = "block";
       document.getElementById("google-waiting").style.display = "none";
       setLoginStatus(data.message, true);
       break;
+
     case "render_started":
       showRenderStatus(true, "Queued…", 0);
       break;
+
     case "render_done":
       showRenderStatus(false, "", 0);
       document.getElementById("render-btn").disabled = false;
       lastRenderPath = data.path;
-      document.getElementById("credits-val").textContent = data.credits >= 0 ? data.credits : "—";
-      alert("Render complete! Image opened in viewer.\n\nPath: " + data.path);
+      updateCredits(data.credits);
+      document.getElementById("render-result").style.display = "block";
       break;
+
     case "render_error":
       showRenderStatus(false, "", 0);
       document.getElementById("render-btn").disabled = false;
-      alert("Render error: " + data.message);
+      document.getElementById("render-error-text").textContent = data.message;
+      document.getElementById("render-error").style.display = "block";
       break;
+
+    case "render_saved":
+      // Optional: could show a saved confirmation
+      break;
+
     case "object_started":
       showObjStatus(true, "Queued…", 0);
       break;
+
     case "object_done":
       showObjStatus(false, "", 0);
       document.getElementById("obj-btn").disabled = false;
-      document.getElementById("credits-val").textContent = data.credits >= 0 ? data.credits : "—";
-      alert("3D Object imported into scene!");
+      updateCredits(data.credits);
+      document.getElementById("obj-result").style.display = "block";
       break;
+
     case "object_error":
       showObjStatus(false, "", 0);
       document.getElementById("obj-btn").disabled = false;
-      alert("Object generation error: " + data.message);
+      document.getElementById("obj-error-text").textContent = data.message;
+      document.getElementById("obj-error").style.display = "block";
       break;
-    case "status_update":
+
+    case "status_update":{
       const pct = data.progress || 0;
       const txt = data.eta ? `${data.status} — ${data.eta}` : data.status;
-      // Update whichever operation is running
-      showRenderStatus(document.getElementById("render-status").style.display !== "none", txt, pct);
-      showObjStatus(document.getElementById("obj-status").style.display !== "none", txt, pct);
+      if(document.getElementById("render-status").style.display !== "none")
+        showRenderStatus(true, txt, pct);
+      if(document.getElementById("obj-status").style.display !== "none")
+        showObjStatus(true, txt, pct);
       break;
+    }
   }
 };
 
@@ -345,16 +383,14 @@ window.quviReceive = function(data){
 onCategoryChange();
 onRenderTypeChange();
 
-// Wait for the SketchUp JS bridge to be ready before calling init.
 var _bridgeAttempts = 0;
-function connectToSketchup() {
-  if (typeof sketchup !== 'undefined' && typeof sketchup.init === 'function') {
+function connectToSketchup(){
+  if(typeof sketchup !== "undefined" && typeof sketchup.init === "function"){
     sketchup.init();
-  } else if (_bridgeAttempts < 50) {
+  } else if(_bridgeAttempts < 50){
     _bridgeAttempts++;
     setTimeout(connectToSketchup, 100);
   }
-  // After 5s give up — login-view is already visible so the user can still interact.
 }
 connectToSketchup();
 </script>

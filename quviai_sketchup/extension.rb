@@ -61,13 +61,26 @@ module QUVIAI
                  "&scope=email%20profile" \
                  "&access_type=offline"
 
-      UI.openURL(auth_url)
-
       Thread.new do
+        server = nil
         begin
-          server = TCPServer.new("localhost", GOOGLE_OAUTH_PORT)
-          server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+          # Bind to 127.0.0.1 (not "localhost") to avoid the Windows quirk
+          # where "localhost" resolves to ::1 (IPv6) but the browser connects
+          # on 127.0.0.1 (IPv4), causing the accept to miss the request.
+          server = TCPServer.new("127.0.0.1", GOOGLE_OAUTH_PORT)
+
+          # Open the browser AFTER the server is ready — eliminates the race
+          # condition where Google redirects before our port is listening.
+          MainThread.run { UI.openURL(auth_url) }
+
+          # 120-second timeout, same as the Blender plugin.
+          unless IO.select([server], nil, nil, 120)
+            raise "Google login timed out. Please try again."
+          end
+
           conn = server.accept
+          server.close
+          server = nil
 
           request = +""
           while (line = conn.gets)
@@ -82,7 +95,6 @@ module QUVIAI
             : "<h2>Login failed. Please try again.</h2>"
           conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n#{body}"
           conn.close
-          server.close
 
           if code
             @client = QuviClient.login_with_google(
@@ -96,10 +108,12 @@ module QUVIAI
             Store.save_credits(credits)
             callback.call(credits: credits, error: nil)
           else
-            callback.call(credits: nil, error: "No authorisation code received from Google")
+            callback.call(credits: nil, error: "No authorisation code received from Google.")
           end
         rescue StandardError => e
           callback.call(credits: nil, error: e.message)
+        ensure
+          server&.close rescue nil
         end
       end
     end
@@ -125,15 +139,10 @@ module QUVIAI
     def self.start_render(params, &callback)
       raise QuviError, "Not logged in" unless client
 
-      image_b64 = if params[:use_viewport]
-        Capture.viewport_to_base64
-      elsif params[:image_path] && !params[:image_path].empty?
-        Capture.file_to_base64(params[:image_path])
-      end
-
-      ref_b64 = if params[:ref_image_path] && !params[:ref_image_path].empty?
-        Capture.file_to_base64(params[:ref_image_path])
-      end
+      # Always capture the current viewport at 1920px long edge (lossless PNG).
+      # This call must happen on the main thread, which is where add_action_callback
+      # blocks execute, so we capture here before handing off to the worker thread.
+      image_b64 = Capture.viewport_to_base64
 
       c = client
       Thread.new do
@@ -145,13 +154,12 @@ module QUVIAI
             weather:     params[:weather],
             render_type: params[:render_type],
             image:       image_b64,
-            ref_image:   ref_b64,
             on_status:   params[:on_status],
           )
           image_bytes = c.download_result(result)
-          callback.call(image_bytes: image_bytes, error: nil)
+          callback.call(image_bytes: image_bytes, last_credit: c.last_credit, error: nil)
         rescue StandardError => e
-          callback.call(image_bytes: nil, error: e.message)
+          callback.call(image_bytes: nil, last_credit: nil, error: e.message)
         end
       end
     end
@@ -175,9 +183,9 @@ module QUVIAI
             image:     image_b64,
             on_status: params[:on_status],
           )
-          callback.call(glb_bytes: glb_bytes, error: nil)
+          callback.call(glb_bytes: glb_bytes, last_credit: c.last_credit, error: nil)
         rescue StandardError => e
-          callback.call(glb_bytes: nil, error: e.message)
+          callback.call(glb_bytes: nil, last_credit: nil, error: e.message)
         end
       end
     end
