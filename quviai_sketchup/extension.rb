@@ -17,8 +17,10 @@ require_relative "panel"
 
 module QUVIAI
   module Extension
-    @client    = nil
-    @panel     = nil
+    @client        = nil
+    @panel         = nil
+    @google_dialog = nil
+    @google_server = nil
 
     # ------------------------------------------------------------------
     # Client lifecycle
@@ -50,8 +52,8 @@ module QUVIAI
       credits
     end
 
-    # Opens a browser for Google OAuth and starts a local server to catch
-    # the redirect automatically — same flow as the Blender plugin.
+    # Opens Google OAuth inside a second SketchUp HtmlDialog (no external browser).
+    # A TCPServer on 127.0.0.1 catches the OAuth redirect from that dialog's webview.
     def self.start_google_login(&callback)
       redirect_uri = "http://localhost:#{GOOGLE_OAUTH_PORT}"
       auth_url = "https://accounts.google.com/o/oauth2/v2/auth" \
@@ -64,22 +66,37 @@ module QUVIAI
       Thread.new do
         server = nil
         begin
-          # Bind to 127.0.0.1 (not "localhost") to avoid the Windows quirk
-          # where "localhost" resolves to ::1 (IPv6) but the browser connects
-          # on 127.0.0.1 (IPv4), causing the accept to miss the request.
+          # Close any server left over from a previous failed attempt.
+          begin
+            @google_server&.close
+          rescue
+          end
+          @google_server = nil
+
           server = TCPServer.new("127.0.0.1", GOOGLE_OAUTH_PORT)
+          @google_server = server
 
-          # Open the browser AFTER the server is ready — eliminates the race
-          # condition where Google redirects before our port is listening.
-          MainThread.run { UI.openURL(auth_url) }
+          # Open Google OAuth in a second HtmlDialog — stays inside SketchUp.
+          MainThread.run do
+            @google_dialog&.close rescue nil
+            @google_dialog = UI::HtmlDialog.new(
+              dialog_title: "QUVIAI — Google Sign-In",
+              width:        520,
+              height:       660,
+              resizable:    true,
+            )
+            @google_dialog.navigate(auth_url)
+            @google_dialog.show
+          end
 
-          # 120-second timeout, same as the Blender plugin.
+          # Wait up to 120 s for the OAuth redirect to hit our server.
           unless IO.select([server], nil, nil, 120)
             raise "Google login timed out. Please try again."
           end
 
           conn = server.accept
           server.close
+          @google_server = nil
           server = nil
 
           request = +""
@@ -90,11 +107,24 @@ module QUVIAI
 
           code = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
 
-          body = code \
-            ? "<h2>Login successful! You can close this tab and return to SketchUp.</h2>" \
-            : "<h2>Login failed. Please try again.</h2>"
-          conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n#{body}"
+          success_html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'>" \
+                         "<h2 style='color:#2ecc71'>Login successful!</h2>" \
+                         "<p>This window will close automatically.</p></body></html>"
+          failure_html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'>" \
+                         "<h2 style='color:#e74c3c'>Login failed.</h2>" \
+                         "<p>Please close this window and try again.</p></body></html>"
+          conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n" \
+                     (code ? success_html : failure_html)
           conn.close
+
+          # Auto-close the OAuth dialog after a 2-second pause so the user
+          # can see the success message before the window disappears.
+          MainThread.run do
+            UI.start_timer(2.0, false) do
+              @google_dialog&.close rescue nil
+              @google_dialog = nil
+            end
+          end
 
           if code
             @client = QuviClient.login_with_google(
@@ -111,9 +141,14 @@ module QUVIAI
             callback.call(credits: nil, error: "No authorisation code received from Google.")
           end
         rescue StandardError => e
+          MainThread.run do
+            @google_dialog&.close rescue nil
+            @google_dialog = nil
+          end
           callback.call(credits: nil, error: e.message)
         ensure
           server&.close rescue nil
+          @google_server = nil
         end
       end
     end

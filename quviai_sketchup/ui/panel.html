@@ -215,14 +215,20 @@ function login(){
   const password = document.getElementById("password").value;
   if(!email || !password){ setLoginStatus("E-mail and password are required.", true); return; }
   setLoginStatus("Logging in…");
-  sketchup.login(email, password);
+  try { sketchup.login(email, password); }
+  catch(e){ setLoginStatus("Bridge error: " + e.message, true); }
 }
 
 function startGoogleLogin(){
   document.getElementById("login-form").style.display = "none";
   document.getElementById("google-waiting").style.display = "block";
   setLoginStatus("");
-  sketchup.start_google_login();
+  try { sketchup.start_google_login(); }
+  catch(e){
+    document.getElementById("login-form").style.display = "block";
+    document.getElementById("google-waiting").style.display = "none";
+    setLoginStatus("Bridge error: " + e.message, true);
+  }
 }
 
 function cancelGoogleLogin(){
@@ -249,7 +255,13 @@ function startRender(){
   document.getElementById("render-result").style.display = "none";
   document.getElementById("render-error").style.display  = "none";
   showRenderStatus(true, "Capturing viewport…", 0);
-  sketchup.start_render(JSON.stringify(params));
+  try { sketchup.start_render(JSON.stringify(params)); }
+  catch(e){
+    document.getElementById("render-btn").disabled = false;
+    showRenderStatus(false, "", 0);
+    document.getElementById("render-error-text").textContent = "Bridge error: " + e.message;
+    document.getElementById("render-error").style.display = "block";
+  }
 }
 
 function startObject(){
@@ -261,7 +273,13 @@ function startObject(){
   document.getElementById("obj-result").style.display = "none";
   document.getElementById("obj-error").style.display  = "none";
   showObjStatus(true, "Submitting…", 0);
-  sketchup.start_object(JSON.stringify(params));
+  try { sketchup.start_object(JSON.stringify(params)); }
+  catch(e){
+    document.getElementById("obj-btn").disabled = false;
+    showObjStatus(false, "", 0);
+    document.getElementById("obj-error-text").textContent = "Bridge error: " + e.message;
+    document.getElementById("obj-error").style.display = "block";
+  }
 }
 
 function saveRender(){
