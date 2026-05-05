@@ -72,9 +72,12 @@ module QUVIAI
           if result[:error]
             send_event("render_error", { message: result[:error] })
           else
-            path = Importer.open_image_temp(result[:image_bytes])
-            credits = Extension.refresh_credits
-            send_event("render_done", { path: path, credits: credits })
+            # UI.openURL must run on the main thread
+            MainThread.run do
+              path    = Importer.open_image_temp(result[:image_bytes])
+              credits = Extension.refresh_credits
+              send_event("render_done", { path: path, credits: credits })
+            end
           end
         end
       end
@@ -102,12 +105,15 @@ module QUVIAI
           if result[:error]
             send_event("object_error", { message: result[:error] })
           else
-            begin
-              Importer.import_glb(result[:glb_bytes])
-              credits = Extension.refresh_credits
-              send_event("object_done", { credits: credits })
-            rescue StandardError => e
-              send_event("object_error", { message: e.message })
+            # model.import must run on the main thread
+            MainThread.run do
+              begin
+                Importer.import_glb(result[:glb_bytes])
+                credits = Extension.refresh_credits
+                send_event("object_done", { credits: credits })
+              rescue StandardError => e
+                send_event("object_error", { message: e.message })
+              end
             end
           end
         end

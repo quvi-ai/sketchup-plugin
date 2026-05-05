@@ -9,6 +9,7 @@ require_relative "client"
 require_relative "store"
 require_relative "capture"
 require_relative "importer"
+require_relative "main_thread"
 require_relative "panel"
 
 module QUVIAI
