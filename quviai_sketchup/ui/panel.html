@@ -281,14 +281,14 @@ function setLoginStatus(msg, isError){
 window.quviReceive = function(data){
   switch(data.event){
     case "logged_in":
-      document.getElementById("login-form").style.display   = "";
+      document.getElementById("login-form").style.display   = "block";
       document.getElementById("google-waiting").style.display = "none";
       document.getElementById("login-view").style.display   = "none";
-      document.getElementById("main-view").style.display    = "";
+      document.getElementById("main-view").style.display    = "block";
       document.getElementById("credits-val").textContent    = data.credits >= 0 ? data.credits : "—";
       break;
     case "logged_out":
-      document.getElementById("login-view").style.display = "";
+      document.getElementById("login-view").style.display = "block";
       document.getElementById("main-view").style.display  = "none";
       break;
     case "google_login_waiting":
