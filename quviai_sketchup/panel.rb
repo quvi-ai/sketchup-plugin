@@ -15,14 +15,14 @@ module QUVIAI
         min_height:      400,
         resizable:       true,
       )
+
+      register_callbacks
+
+      html = File.read(File.join(__dir__, "ui", "panel.html"), encoding: "UTF-8")
+      @dialog.set_html(html)
     end
 
     def show
-      # Re-register callbacks and reload the file every time the panel is shown.
-      # This ensures the sketchup JS bridge reflects current callbacks even after
-      # the dialog was closed and reopened (some SketchUp versions drop them).
-      register_callbacks
-      @dialog.set_file(File.join(__dir__, "ui", "panel.html"))
       @dialog.show
       @dialog.bring_to_front
     end
@@ -30,8 +30,6 @@ module QUVIAI
     private
 
     def register_callbacks
-      # Login — runs in a thread so the HTTP request does not block the main
-      # thread, which would prevent execute_script from working.
       @dialog.add_action_callback("login") do |_ctx, email, password|
         Thread.new do
           begin
@@ -43,7 +41,6 @@ module QUVIAI
         end
       end
 
-      # Google login — opens browser, starts local server to catch callback automatically
       @dialog.add_action_callback("start_google_login") do |_ctx|
         send_event("google_login_waiting", {})
         Extension.start_google_login do |result|
@@ -55,13 +52,11 @@ module QUVIAI
         end
       end
 
-      # Logout — local only, no HTTP, safe on main thread
       @dialog.add_action_callback("logout") do |_ctx|
         Extension.logout
         send_event("logged_out", {})
       end
 
-      # Init — called by JS on page load; reads local storage only, no HTTP
       @dialog.add_action_callback("init") do |_ctx|
         if Extension.logged_in?
           send_event("logged_in", { credits: Store.credits })
@@ -70,7 +65,6 @@ module QUVIAI
         end
       end
 
-      # Refresh credits — HTTP call, run in thread
       @dialog.add_action_callback("refresh_credits") do |_ctx|
         Thread.new do
           credits = Extension.refresh_credits
@@ -78,7 +72,6 @@ module QUVIAI
         end
       end
 
-      # Start render
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
@@ -96,18 +89,15 @@ module QUVIAI
         end
       end
 
-      # Save render result
       @dialog.add_action_callback("save_render") do |_ctx, path|
         begin
-          data  = File.binread(path)
-          saved = Importer.save_image(data)
+          saved = Importer.save_image(File.binread(path))
           send_event("render_saved", { path: saved }) if saved
         rescue StandardError => e
           send_event("error", { message: e.message })
         end
       end
 
-      # Start 3D object generation
       @dialog.add_action_callback("start_object") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
         params[:on_status] = method(:on_status_callback)
