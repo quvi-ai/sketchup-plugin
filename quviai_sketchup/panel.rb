@@ -103,6 +103,11 @@ module QUVIAI
         end
       end
 
+      # Open pricing page in the system browser
+      @dialog.add_action_callback("open_pricing") do |_ctx|
+        UI.openURL("https://quvi.ai/pricing")
+      end
+
       # Save last render result to a user-chosen file
       @dialog.add_action_callback("save_render") do |_ctx, path|
         begin

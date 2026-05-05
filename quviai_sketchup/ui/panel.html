@@ -65,8 +65,12 @@
     <h2 style="margin:0">QUVIAI</h2>
     <button class="btn-secondary" style="width:auto;padding:4px 10px;margin:0" onclick="logout()">Log Out</button>
   </div>
-  <div class="credits">Credits: <span id="credits-val">—</span>
-    <a href="#" onclick="refreshCredits();return false" style="color:#4f7bff;margin-left:6px">↻</a>
+  <div class="credits" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Credits: <span id="credits-val">—</span>
+      <a href="#" onclick="refreshCredits();return false" style="color:#4f7bff;margin-left:6px">↻</a>
+    </span>
+    <a href="#" onclick="sketchup.open_pricing();return false"
+       style="color:#4f7bff;font-size:11px;text-decoration:none">Buy Credits →</a>
   </div>
 
   <!-- ── Render 3D ── -->
