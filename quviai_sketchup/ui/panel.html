@@ -28,7 +28,7 @@
   .section{margin-top:14px;border-top:1px solid #333;padding-top:10px}
   .row{display:flex;gap:6px}
   .row>*{flex:1}
-  #login-view,#main-view{display:none}
+  #main-view{display:none}
 </style>
 </head>
 <body>
@@ -346,12 +346,15 @@ onCategoryChange();
 onRenderTypeChange();
 
 // Wait for the SketchUp JS bridge to be ready before calling init.
+var _bridgeAttempts = 0;
 function connectToSketchup() {
-  if (typeof sketchup !== 'undefined') {
+  if (typeof sketchup !== 'undefined' && typeof sketchup.init === 'function') {
     sketchup.init();
-  } else {
+  } else if (_bridgeAttempts < 50) {
+    _bridgeAttempts++;
     setTimeout(connectToSketchup, 100);
   }
+  // After 5s give up — login-view is already visible so the user can still interact.
 }
 connectToSketchup();
 </script>

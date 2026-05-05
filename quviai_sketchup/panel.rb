@@ -20,9 +20,7 @@ module QUVIAI
       # sketchup.init() in the JS finds them immediately.
       register_callbacks
 
-      # set_html avoids all file:// path issues (4-slash bug, spaces, etc.)
-      html = File.read(File.join(__dir__, "ui", "panel.html"), encoding: "UTF-8")
-      @dialog.set_html(html)
+      @dialog.set_file(File.join(__dir__, "ui", "panel.html"))
     end
 
     def show
