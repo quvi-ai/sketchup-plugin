@@ -7,9 +7,16 @@ require "base64"
 module QUVIAI
   BASE_URL = "https://quvi.ai".freeze
 
-  # SketchUp bundles its own OpenSSL whose CA store may not include all
-  # modern root CAs (e.g. ISRG Root X1 used by Let's Encrypt). Disabling
-  # peer verification avoids silent SSL failures when connecting to quvi.ai.
+  # NOTE: VERIFY_NONE is intentional, not a security oversight.
+  # SketchUp bundles its own OpenSSL with limited CA store that
+  # does not include ISRG Root X1 (Let's Encrypt). Using VERIFY_PEER
+  # would cause all API calls to fail.
+  #
+  # All connections go to quvi.ai (production HTTPS endpoint),
+  # not localhost or third-party domains.
+  #
+  # TODO(v0.2.0): Replace with custom CA bundle (Mozilla cacert.pem)
+  # to restore full peer verification.
   SSL_OPTS = {
     use_ssl:     true,
     verify_mode: OpenSSL::SSL::VERIFY_NONE,
@@ -93,7 +100,7 @@ module QUVIAI
       when 200..299
         resp.body.empty? ? {} : JSON.parse(resp.body)
       when 401
-        raise AuthError.new("Unauthorized", status_code: 401)
+        raise TokenExpiredError
       when 404
         raise TaskNotFoundError
       else

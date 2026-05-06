@@ -1,2 +1,20 @@
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+secrets.rb
+
+# Ruby
+*.rb~
+*.gem
+Gemfile.lock
+.bundle/
+vendor/bundle/
+
+# Test artifacts
+test_*.json
+
+# OS
 *.rbz
 .DS_Store

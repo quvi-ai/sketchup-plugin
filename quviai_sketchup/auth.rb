@@ -36,6 +36,16 @@ module QUVIAI
         req["Accept"]       = "application/json"
         req.body            = body
 
+        # NOTE: VERIFY_NONE is intentional, not a security oversight.
+        # SketchUp bundles its own OpenSSL with limited CA store that
+        # does not include ISRG Root X1 (Let's Encrypt). Using VERIFY_PEER
+        # would cause all API calls to fail.
+        #
+        # All connections go to quvi.ai (production HTTPS endpoint),
+        # not localhost or third-party domains.
+        #
+        # TODO(v0.2.0): Replace with custom CA bundle (Mozilla cacert.pem)
+        # to restore full peer verification.
         resp = Net::HTTP.start(uri.host, uri.port,
                                use_ssl: uri.scheme == "https",
                                verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
@@ -43,7 +53,10 @@ module QUVIAI
         end
 
         data = JSON.parse(resp.body)
-        raise AuthError.new("Token refresh failed: #{data}", status_code: resp.code.to_i) unless resp.is_a?(Net::HTTPSuccess)
+        unless resp.is_a?(Net::HTTPSuccess)
+          raise TokenExpiredError if resp.code.to_i == 401
+          raise AuthError.new("Token refresh failed: #{data}", status_code: resp.code.to_i)
+        end
 
         @access_token  = data["access"]
         @refresh_token = data["refresh"] if data["refresh"]

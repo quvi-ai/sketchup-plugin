@@ -11,6 +11,12 @@ module QUVIAI
 
   class LoginError < AuthError; end
 
+  class TokenExpiredError < AuthError
+    def initialize(msg = "Session expired, please log in again")
+      super(msg)
+    end
+  end
+
   class TaskFailedError < QuviError
     attr_reader :task_id
     def initialize(msg = "Task failed", task_id: nil)
