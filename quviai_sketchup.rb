@@ -9,6 +9,7 @@ module QUVIAI
   extension.copyright   = "© 2025 QUVIAI"
   extension.creator     = "QUVIAI"
   extension.description = "AI-powered architectural render and 3D object generation for SketchUp"
+  extension.icon        = File.join(PLUGIN_ROOT, "quviai_sketchup", "ui", "icon.png")
 
   Sketchup.register_extension(extension, true)
 end
