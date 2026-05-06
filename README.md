@@ -69,9 +69,18 @@ Open the panel via **Plugins → QUVIAI → Open Panel** and enter your QUVIAI e
 | Session expired | Token expired | Log out and log in again |
 | GLB import failed | SketchUp version too old | Use SketchUp Pro 2021 or newer |
 
+## Distribution
+
+The extension is distributed as an RBZ package (`quviai_sketchup.rbz`) via
+[Trimble Extension Warehouse](https://extensions.sketchup.com/).
+
+**Code signing:** Trimble signs the extension automatically during the Extension Warehouse
+submission review process. No manual signing step is required by developers or end users.
+Do not attempt to sign the RBZ manually before submission.
+
 ## Contributing
 
-Pull requests are welcome. All contributions require a review before merging — see [CODEOWNERS](.github/CODEOWNERS).
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.
 
 ## License
 
