@@ -117,7 +117,7 @@
       </div>
     </div>
 
-    <button class="btn-primary" style="margin-top:10px" onclick="startRender()" id="render-btn">Render</button>
+    <button class="btn-primary" style="margin-top:10px" onclick="startRender()" id="render-btn">Render <span style="opacity:0.7;font-size:11px">(2 credits)</span></button>
 
     <div id="render-status" class="status-box" style="display:none">
       <div class="progress"><div class="progress-bar" id="render-progress-bar" style="width:0%"></div></div>
@@ -153,7 +153,7 @@
       <input type="text" id="obj-image-path" placeholder="/path/to/image.jpg">
     </div>
 
-    <button class="btn-primary" onclick="startObject()" id="obj-btn">Generate 3D Object</button>
+    <button class="btn-primary" onclick="startObject()" id="obj-btn">Generate 3D Object <span style="opacity:0.7;font-size:11px">(10 credits)</span></button>
 
     <div id="obj-status" class="status-box" style="display:none">
       <div class="progress"><div class="progress-bar" id="obj-progress-bar" style="width:0%"></div></div>
@@ -167,6 +167,14 @@
     <div id="obj-error" class="status-box" style="display:none;margin-top:6px">
       <span class="error" id="obj-error-text"></span>
     </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="margin-top:16px;border-top:1px solid #333;padding-top:10px;text-align:center">
+    <a href="#" onclick="sketchup.open_site();return false"
+       style="color:#4f7bff;font-size:11px;text-decoration:none;margin-right:12px">Visit quvi.ai →</a>
+    <a href="#" onclick="sketchup.open_terms();return false"
+       style="color:#888;font-size:11px;text-decoration:none">Terms &amp; Privacy</a>
   </div>
 </div>
 

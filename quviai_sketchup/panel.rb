@@ -87,6 +87,14 @@ module QUVIAI
         UI.openURL("https://quvi.ai/pricing")
       end
 
+      @dialog.add_action_callback("open_site") do |_ctx|
+        UI.openURL("https://quvi.ai")
+      end
+
+      @dialog.add_action_callback("open_terms") do |_ctx|
+        UI.openURL("https://quvi.ai/all-terms")
+      end
+
       # Render 3D — long-running, must be async.
       @dialog.add_action_callback("start_render") do |_ctx, params_json|
         params = JSON.parse(params_json, symbolize_names: true)
