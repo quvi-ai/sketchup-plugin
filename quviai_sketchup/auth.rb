@@ -43,7 +43,10 @@ module QUVIAI
         end
 
         data = JSON.parse(resp.body)
-        raise AuthError.new("Token refresh failed: #{data}", status_code: resp.code.to_i) unless resp.is_a?(Net::HTTPSuccess)
+        unless resp.is_a?(Net::HTTPSuccess)
+          raise TokenExpiredError if resp.code.to_i == 401
+          raise AuthError.new("Token refresh failed: #{data}", status_code: resp.code.to_i)
+        end
 
         @access_token  = data["access"]
         @refresh_token = data["refresh"] if data["refresh"]

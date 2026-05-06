@@ -93,7 +93,7 @@ module QUVIAI
       when 200..299
         resp.body.empty? ? {} : JSON.parse(resp.body)
       when 401
-        raise AuthError.new("Unauthorized", status_code: 401)
+        raise TokenExpiredError
       when 404
         raise TaskNotFoundError
       else
