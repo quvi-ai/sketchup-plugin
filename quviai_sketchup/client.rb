@@ -93,6 +93,7 @@ module QUVIAI
             result["model_url"] || result["model"] || result["file"] || result["object"]
 
       if url && url.to_s.match?(/\Ahttps?:\/\//)
+        validate_download_host!(url.to_s)
         return @http.get_bytes(url.to_s)
       end
 
@@ -161,7 +162,10 @@ module QUVIAI
 
     def download_result(result)
       return result.image_data if result.image_data
-      return @http.get_bytes(result.url) if result.url
+      if result.url
+        validate_download_host!(result.url)
+        return @http.get_bytes(result.url)
+      end
       raise QuviError, "GenerateResult has neither image_data nor url"
     end
 
@@ -170,6 +174,13 @@ module QUVIAI
     # ------------------------------------------------------------------
 
     private
+
+    def validate_download_host!(url)
+      host = URI(url).host.to_s.downcase
+      unless ALLOWED_DOWNLOAD_HOSTS.include?(host)
+        raise QuviError, "Download blocked: host '#{host}' is not in the allowed list"
+      end
+    end
 
     def encode(image)
       return Base64.strict_encode64(image) if image.is_a?(String) && image.encoding == Encoding::BINARY
