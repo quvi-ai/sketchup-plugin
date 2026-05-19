@@ -18,6 +18,6 @@ module QUVIAI
   ALLOWED_DOWNLOAD_HOSTS = [
     "quvi.ai",
     "www.quvi.ai",
-    "quviai-assets.s3.amazonaws.com",
+    "quvi-server-storage.s3.amazonaws.com",
   ].freeze
 end
