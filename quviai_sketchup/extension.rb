@@ -71,6 +71,7 @@ module QUVIAI
         server = nil
         begin
           # Tear down any leftover server from a previous attempt.
+          # Errors here are non-critical; the socket may already be closed.
           begin; @google_server&.close; rescue; end
           @google_server = nil
 
@@ -126,6 +127,8 @@ module QUVIAI
               client_key:   CLIENT_KEY,
             )
             Store.save_tokens(access: @client.access_token, refresh: @client.refresh_token)
+            # get_credits is a second HTTP call — non-fatal so a transient
+            # network hiccup doesn't break a login that already succeeded.
             credits = begin; @client.get_credits; rescue; -1; end
             Store.save_credits(credits)
             callback.call(credits: credits, error: nil)
@@ -137,7 +140,7 @@ module QUVIAI
         rescue StandardError => e
           callback.call(credits: nil, error: e.message)
         ensure
-          server&.close rescue nil
+          server&.close rescue nil  # cleanup-only; ignore errors on an already-closed socket
           @google_server = nil
         end
       end

@@ -38,7 +38,7 @@ module QUVIAI
             File.open(File.join(Dir.tmpdir, "quviai_errors.log"), "a") do |f|
               f.puts "[#{Time.now}] MainThread error: #{e.class}: #{e.message}"
             end
-          rescue; end
+          rescue; end  # log write is best-effort; a failure here must not re-raise
         end
       end
     end
