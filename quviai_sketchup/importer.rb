@@ -8,10 +8,23 @@ module QUVIAI
       tmp_path = File.join(Dir.tmpdir, name)
       File.binwrite(tmp_path, glb_bytes)
 
-      status = Sketchup.active_model.import(tmp_path, false)
-      raise QuviError, "GLB import failed (status: #{status})" unless status
-
-      status
+      model = Sketchup.active_model
+      model.start_operation("Import QUVIAI Object", true)
+      begin
+        status = model.import(tmp_path, false)
+        if status
+          model.commit_operation
+        else
+          model.abort_operation
+          raise QuviError, "GLB import failed"
+        end
+        status
+      rescue QuviError
+        raise
+      rescue => e
+        model.abort_operation
+        raise e
+      end
     ensure
       File.delete(tmp_path) if tmp_path && File.exist?(tmp_path)
     end
