@@ -1,6 +1,7 @@
 require "json"
 require "net/http"
 require "openssl"
+require "uri"
 require "base64"
 
 module QUVIAI
@@ -97,7 +98,7 @@ module QUVIAI
         return @http.get_bytes(url.to_s)
       end
 
-      @http.download_authenticated("/api/3d-objects/download/?task_id=#{task_id}")
+      @http.download_authenticated("/api/3d-objects/download/?task_id=#{URI.encode_www_form_component(task_id)}")
     end
 
     def submit_object_3d(prompt: "", image: nil)
