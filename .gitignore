@@ -3,6 +3,8 @@
 .env.*
 *.key
 *.pem
+# Exception: bundled Mozilla CA bundle is a public file, not a private key
+!quviai_sketchup/vendor/cacert.pem
 secrets.rb
 
 # Ruby
