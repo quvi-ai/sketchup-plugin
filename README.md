@@ -78,6 +78,22 @@ The extension is distributed as an RBZ package (`quviai_sketchup.rbz`) via
 submission review process. No manual signing step is required by developers or end users.
 Do not attempt to sign the RBZ manually before submission.
 
+## Security & Privacy Notes
+
+QUVIAI Render stores your authentication tokens (JWTs) using SketchUp's standard
+preferences mechanism (`Sketchup.write_default`). This is the conventional storage
+method for SketchUp extensions, but tokens are stored unencrypted in your system's
+preference store:
+
+- **Windows:** Windows Registry
+- **macOS:** User plist files
+
+Anyone with access to your user account can read these tokens. If you share your
+computer or use a public machine, sign out from the QUVIAI panel when you are done.
+
+Tokens are automatically refreshed and rotate every few hours. If you suspect token
+compromise, change your QUVIAI password at https://quvi.ai/account.
+
 ## Contributing
 
 Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.

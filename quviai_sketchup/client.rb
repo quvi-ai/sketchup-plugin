@@ -1,6 +1,7 @@
 require "json"
 require "net/http"
 require "openssl"
+require "uri"
 require "base64"
 
 module QUVIAI
@@ -93,10 +94,11 @@ module QUVIAI
             result["model_url"] || result["model"] || result["file"] || result["object"]
 
       if url && url.to_s.match?(/\Ahttps?:\/\//)
+        validate_download_host!(url.to_s)
         return @http.get_bytes(url.to_s)
       end
 
-      @http.download_authenticated("/api/3d-objects/download/?task_id=#{task_id}")
+      @http.download_authenticated("/api/3d-objects/download/?task_id=#{URI.encode_www_form_component(task_id)}")
     end
 
     def submit_object_3d(prompt: "", image: nil)
@@ -161,7 +163,10 @@ module QUVIAI
 
     def download_result(result)
       return result.image_data if result.image_data
-      return @http.get_bytes(result.url) if result.url
+      if result.url
+        validate_download_host!(result.url)
+        return @http.get_bytes(result.url)
+      end
       raise QuviError, "GenerateResult has neither image_data nor url"
     end
 
@@ -170,6 +175,13 @@ module QUVIAI
     # ------------------------------------------------------------------
 
     private
+
+    def validate_download_host!(url)
+      host = URI(url).host.to_s.downcase
+      unless ALLOWED_DOWNLOAD_HOSTS.include?(host)
+        raise QuviError, "Download blocked: host '#{host}' is not in the allowed list"
+      end
+    end
 
     def encode(image)
       return Base64.strict_encode64(image) if image.is_a?(String) && image.encoding == Encoding::BINARY
@@ -239,19 +251,10 @@ module QUVIAI
       req["X-API-Key"]    = client_key if client_key
       req.body            = JSON.generate(body)
 
-      # NOTE: VERIFY_NONE is intentional, not a security oversight.
-      # SketchUp bundles its own OpenSSL with limited CA store that
-      # does not include ISRG Root X1 (Let's Encrypt). Using VERIFY_PEER
-      # would cause all API calls to fail.
-      #
-      # All connections go to quvi.ai (production HTTPS endpoint),
-      # not localhost or third-party domains.
-      #
-      # TODO(v0.2.0): Replace with custom CA bundle (Mozilla cacert.pem)
-      # to restore full peer verification.
       resp = Net::HTTP.start(uri.host, uri.port,
-                             use_ssl:     uri.scheme == "https",
-                             verify_mode: OpenSSL::SSL::VERIFY_NONE,
+                             use_ssl:      uri.scheme == "https",
+                             verify_mode:  OpenSSL::SSL::VERIFY_PEER,
+                             ca_file:      CA_BUNDLE,
                              open_timeout: 30, read_timeout: 120) do |http|
         http.request(req)
       end

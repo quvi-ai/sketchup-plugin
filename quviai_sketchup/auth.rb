@@ -36,19 +36,10 @@ module QUVIAI
         req["Accept"]       = "application/json"
         req.body            = body
 
-        # NOTE: VERIFY_NONE is intentional, not a security oversight.
-        # SketchUp bundles its own OpenSSL with limited CA store that
-        # does not include ISRG Root X1 (Let's Encrypt). Using VERIFY_PEER
-        # would cause all API calls to fail.
-        #
-        # All connections go to quvi.ai (production HTTPS endpoint),
-        # not localhost or third-party domains.
-        #
-        # TODO(v0.2.0): Replace with custom CA bundle (Mozilla cacert.pem)
-        # to restore full peer verification.
         resp = Net::HTTP.start(uri.host, uri.port,
-                               use_ssl: uri.scheme == "https",
-                               verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
+                               use_ssl:     uri.scheme == "https",
+                               verify_mode: OpenSSL::SSL::VERIFY_PEER,
+                               ca_file:     CA_BUNDLE) do |http|
           http.request(req)
         end
 
