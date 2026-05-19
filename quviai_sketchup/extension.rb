@@ -58,12 +58,14 @@ module QUVIAI
     # A local TCP server on SO_REUSEADDR catches the redirect so retries work immediately.
     def self.start_google_login(&callback)
       redirect_uri = "http://localhost:#{GOOGLE_OAUTH_PORT}"
+      state = SecureRandom.hex(16)
       auth_url = "https://accounts.google.com/o/oauth2/v2/auth" \
                  "?client_id=#{URI.encode_www_form_component(GOOGLE_CLIENT_ID)}" \
                  "&redirect_uri=#{URI.encode_www_form_component(redirect_uri)}" \
                  "&response_type=code" \
                  "&scope=email%20profile" \
-                 "&access_type=offline"
+                 "&access_type=offline" \
+                 "&state=#{URI.encode_www_form_component(state)}"
 
       Thread.new do
         server = nil
@@ -99,8 +101,12 @@ module QUVIAI
             request << line
           end
 
-          raw_code = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
-          code = raw_code ? URI.decode_www_form_component(raw_code) : nil
+          raw_code  = request.match(/GET \/[^\s]*[?&]code=([^&\s]+)/i)&.captures&.first
+          code      = raw_code ? URI.decode_www_form_component(raw_code) : nil
+
+          raw_state      = request.match(/GET \/[^\s]*[?&]state=([^&\s]+)/i)&.captures&.first
+          received_state = raw_state ? URI.decode_www_form_component(raw_state) : nil
+          state_valid    = received_state == state
 
           success_html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'>" \
                          "<h2 style='color:#2ecc71'>Login successful!</h2>" \
@@ -109,10 +115,10 @@ module QUVIAI
                          "<h2 style='color:#e74c3c'>Login failed.</h2>" \
                          "<p>Please close this tab and try again in SketchUp.</p></body></html>"
           conn.print "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n" \
-                     + (code ? success_html : failure_html)
+                     + (code && state_valid ? success_html : failure_html)
           conn.close
 
-          if code
+          if code && state_valid
             @client = QuviClient.login_with_google(
               auth_code:    code,
               redirect_uri: redirect_uri,
@@ -123,6 +129,8 @@ module QUVIAI
             credits = begin; @client.get_credits; rescue; -1; end
             Store.save_credits(credits)
             callback.call(credits: credits, error: nil)
+          elsif !state_valid
+            callback.call(credits: nil, error: "Invalid state parameter — security check failed. Please try again.")
           else
             callback.call(credits: nil, error: "No authorisation code received from Google.")
           end
